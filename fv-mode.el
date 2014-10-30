@@ -1,23 +1,18 @@
 (defvar fv-mode-hook nil)
 
 (defgroup fv-mode nil
-  "Major mode for time management using the FV method"
+  "Minor mode for time management using the FV method"
   :tag "FV"
   :group 'wp
   :prefix "fv-")
 
-(defgroup fv-mode-faces nil
-  "Faces for syntax highlighting."
-  :group 'fv-mode
-  :group 'faces)
-
 (defface fv-mode-chain-item-f
-  '((t :background "dark sea green"))
+  '((t :background "#ffff99"))
   "Face for chain items in FV mode."
-  :group 'fv-mode-faces)
+  :group 'fv-mode)
 
 (defcustom fv-mode-marker "."
-  "Prefix to mark chain items."
+  "Prefix to mark FV chain items."
   :type 'string
   :group 'fv-mode)
 
@@ -36,8 +31,10 @@
     (define-key map (kbd "C-c C-o") 'fv-finish-item)
     (define-key map (kbd "C-c C-n") 'fv-next-item)
     (define-key map (kbd "C-c C-p") 'fv-previous-item)
+    (define-key map (kbd "C-c C-M-n") 'fv-goto-chain-head)
+    (define-key map (kbd "C-c C-k") 'fv-clear-chain)
     map)
-  "Keymap for FV major mode")
+  "Keymap for FV minor mode")
 
 (defun fv-toggle-item ()
   (interactive)
@@ -83,46 +80,74 @@
           (backward-char)
           (insert (format-time-string " [%Y-%m-%dT%H:%M:%S]")))))))
 
+(defun fv-clear-chain ()
+  (interactive)
+  (if (y-or-n-p "Clear chain?")
+      (save-excursion
+        (beginning-of-buffer)
+        (while (fv-next-item)
+          (fv-unmark-item)))))
+
 (defun fv-next-item ()
   (interactive)
   (let ((has-next (save-excursion
-                    (next-line)
-                    (beginning-of-line)
-                    (re-search-forward (fv-mode-chain-prefix-regexp)))))
+                    (fv-search-chain-forward))))
     (when has-next
-        (progn
-          (next-line)
-          (beginning-of-line)
-          (re-search-forward (fv-mode-chain-prefix-regexp))))))
+        (fv-search-chain-forward))))
+
+(defun fv-search-chain-forward ()
+  (next-line)
+  (beginning-of-line)
+  (re-search-forward (fv-mode-chain-prefix-regexp) nil t))
 
 (defun fv-previous-item ()
   (interactive)
   (let ((has-next (save-excursion
-                    (previous-line)
-                    (end-of-line)
+                    fv-search-chain-backward))
+    (when has-next
+        (fv-search-chain-backward)))))
+
+(defun fv-search-chain-backward ()
+  (previous-line)
+  (end-of-line)
+  (re-search-backward (fv-mode-chain-prefix-regexp) nil t))
+
+(defun fv-goto-chain-head ()
+  (interactive)
+  (let ((has-next (save-excursion
+                    (end-of-buffer)
                     (re-search-backward (fv-mode-chain-prefix-regexp)))))
     (when has-next
         (progn
-          (previous-line)
-          (end-of-line)
+          (end-of-buffer)
           (re-search-backward (fv-mode-chain-prefix-regexp))))))
 
 (defun fv-make-font-lock-keywords ()
-  "Highlighting regex for FV mode"
+  "Highlighting regex for FV mode."
   (list
-   `(,(fv-mode-chain-item-regexp) . 'fv-mode-chain-item-f)))
+   `(,(fv-mode-chain-item-regexp) 0 'fv-mode-chain-item-f t)))
 
-(define-derived-mode fv-mode fundamental-mode "FV"
-  "Major mode for managing a list of tasks a la FV"
-  (set
-   (make-local-variable 'font-lock-defaults)
-;   '(fv-make-font-lock-keywords t nil)
-   (list (fv-make-font-lock-keywords) t)
-   ))
+(define-minor-mode fv-mode
+  "Toggle FV mode.
+With a prefix argument ARG, enable FV mode if ARG is positive, and
+disable it otherwise.  If called from Lisp, enable the mode if ARG
+is omitted or nil.
 
-(defun my-font-lock-restart ()
+When FV mode is enabled, it will highlight lines starting with
+`fv-mode-marker` using the face `fv-mode-chain-item-f`.
+FV mode also provides handy commands for making FV chains.
+"
+  :lighter " FV"
+  :group 'fv-mode
+  (let ((keywords (fv-make-font-lock-keywords)))
+    (if fv-mode
+        (font-lock-add-keywords nil keywords)
+      (font-lock-remove-keywords nil keywords))
+    (font-lock-fontify-buffer)))
+
+(defun turn-on-fv-mode ()
+  "turn fv-mode on"
   (interactive)
-  (setq font-lock-mode-major-mode nil)
-  (font-lock-fontify-buffer))
+  (fv-mode 1))
 
 (provide 'fv-mode)
