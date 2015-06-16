@@ -103,9 +103,9 @@
 (defun fv-previous-item ()
   (interactive)
   (let ((has-next (save-excursion
-                    fv-search-chain-backward))
+                    (fv-search-chain-backward))))
     (when has-next
-        (fv-search-chain-backward)))))
+        (fv-search-chain-backward))))
 
 (defun fv-search-chain-backward ()
   (previous-line)
